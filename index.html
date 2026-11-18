@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>MIRACLE'S MotoGP 3D</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#111;color:white;font-family:Arial,sans-serif}canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 2px 5px #000}
+.panel{background:#07111dcc;border:1px solid #ffffff33;border-radius:12px;padding:10px 14px;backdrop-filter:blur(5px)}
+#brand{position:absolute;top:12px;left:12px;font-weight:900;letter-spacing:1px;font-size:17px}
+#stats{position:absolute;top:12px;right:12px;text-align:right;min-width:125px}
+#speed{font-size:34px;font-weight:900}small{color:#b9d5e8}
+#lap{position:absolute;top:105px;right:12px;text-align:right}
+#msg{position:absolute;top:45%;width:100%;text-align:center;font-size:14px;color:#d8e7f4}
+#controls{position:fixed;bottom:15px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;pointer-events:auto}
+.cluster{display:flex;gap:10px;align-items:end}
+button{border:1px solid #ffffff66;background:#101c2ddd;color:white;border-radius:14px;min-width:62px;height:62px;font-size:13px;font-weight:bold;touch-action:none}
+button:active{background:#e04b27}
+#gas{height:82px;min-width:74px;background:#176b3b}
+#brake{height:72px;min-width:70px;background:#8c2d2d}
+#menu{position:fixed;inset:0;background:linear-gradient(#07111dcc,#020509ee);display:flex;align-items:center;justify-content:center;text-align:center;padding:20px}
+#card{max-width:480px;width:100%;padding:26px;background:#101d2b;border:1px solid #ffffff33;border-radius:20px}
+h1{margin:0 0 8px;font-size:28px}#start{width:100%;height:52px;background:#d74424;margin-top:14px;font-size:16px}
+#hint{font-size:13px;color:#b7c8d7;line-height:1.5}
+</style>
+</head>
+<body>
+<div id="hud">
+ <div id="brand" class="panel">MIRACLE'S <span style="color:#ff6844">MOTOGP 3D</span></div>
+ <div id="stats" class="panel"><div id="speed">0 <small>km/h</small></div><div id="gear">GEAR N</div><small>RACE MODE</small></div>
+ <div id="lap" class="panel">LAP <b id="lapn">1</b> / 3<br><small>POSITION <b id="pos">21</b> / 21</small></div>
+ <div id="msg">Ride the circuit • 20 AI riders</div>
+</div>
+<div id="controls">
+ <div class="cluster"><button id="left">◀<br>LEFT</button><button id="right">▶<br>RIGHT</button></div>
+ <div class="cluster"><button id="brake">BRAKE</button><button id="gas">THROTTLE</button><button id="cam">CAMERA</button></div>
+</div>
+<div id="menu"><div id="card"><h1>MIRACLE'S <span style="color:#ff6844">MotoGP 3D</span></h1><p>Grand Prix • 21 riders • 3 laps</p><p id="hint">A 3D arcade racing prototype with a circuit, 20 AI opponents, chase and rider cameras, and tablet controls.</p><button id="start">START RACE</button><p id="hint">Landscape mode recommended</p></div></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(()=>{
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9cc8e5);scene.fog=new THREE.Fog(0x9cc8e5,100,340);
+const camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.1,800);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xeaf6ff,0x426044,2));
+const sun=new THREE.DirectionalLight(0xffffff,2.4);sun.position.set(-70,100,50);sun.castShadow=true;scene.add(sun);
+const mat=(c,r=.8)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
+const grass=mat(0x397b42), asphalt=mat(0x30343a), white=mat(0xffffff), red=mat(0xe83f27), dark=mat(0x111820), rubber=mat(0x090b0e), metal=mat(0x9ba7b0,.35);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(700,700),grass);ground.rotation.x=-Math.PI/2;ground.position.y=-.16;ground.receiveShadow=true;scene.add(ground);
+const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,70),new THREE.Vector3(62,0,55),new THREE.Vector3(86,0,0),new THREE.Vector3(58,0,-62),new THREE.Vector3(-5,0,-78),new THREE.Vector3(-75,0,-45),new THREE.Vector3(-82,0,24),new THREE.Vector3(-45,0,70),new THREE.Vector3(0,0,70)],true,'catmullrom',.35);
+const pts=curve.getPoints(500), roadGeo=new THREE.BufferGeometry(), verts=[],inds=[];
+for(let i=0;i<pts.length;i++){let p=pts[i],t=curve.getTangent(i/(pts.length-1)),n=new THREE.Vector3(-t.z,0,t.x).normalize();for(let s of [-1,1]){let q=p.clone().addScaledVector(n,s*8);verts.push(q.x,.02,q.z)}if(i<pts.length-1){let a=i*2;inds.push(a,a+1,a+2,a+1,a+3,a+2)}}
+roadGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));roadGeo.setIndex(inds);roadGeo.computeVertexNormals();let road=new THREE.Mesh(roadGeo,asphalt);road.receiveShadow=true;scene.add(road);
+function strip(offset,color,width){let v=[];for(let i=0;i<pts.length;i++){let t=curve.getTangent(i/(pts.length-1)),n=new THREE.Vector3(-t.z,0,t.x).normalize(),p=pts[i].clone().addScaledVector(n,offset);v.push(p.x,.045,p.z)}let g=new THREE.BufferGeometry().setFromPoints(v);let m=new THREE.Mesh(g,new THREE.LineBasicMaterial({color,linewidth:width}));scene.add(m)}
+strip(7.9,0xffffff,2);strip(-7.9,0xffffff,2);
+for(let i=0;i<70;i++){let p=curve.getPoint(i/70),t=curve.getTangent(i/70),n=new THREE.Vector3(-t.z,0,t.x).normalize();for(let s of [-1,1]){let b=new THREE.Mesh(new THREE.BoxGeometry(2,.45,.7),i%2?white:red);b.position.copy(p).addScaledVector(n,s*9.1);b.position.y=.22;b.rotation.y=Math.atan2(t.x,t.z);scene.add(b)}}
+const startLine=new THREE.Mesh(new THREE.BoxGeometry(16,.05,.35),white);startLine.position.set(0,.08,70);scene.add(startLine);
+function bike(color){let g=new THREE.Group();let body=new THREE.Mesh(new THREE.BoxGeometry(.65,.45,1.45),mat(color,.35));body.position.y=.85;g.add(body);let tank=new THREE.Mesh(new THREE.SphereGeometry(.42,16,12),mat(color,.3));tank.scale.set(1,.65,1.2);tank.position.set(0,1.15,-.1);g.add(tank);let seat=new THREE.Mesh(new THREE.BoxGeometry(.5,.18,.7),dark);seat.position.set(0,1.18,-.72);g.add(seat);
+for(let z of [-.95,.9]){let w=new THREE.Mesh(new THREE.TorusGeometry(.34,.105,10,20),rubber);w.rotation.y=Math.PI/2;w.position.set(0,.38,z);g.add(w);let hub=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.18,12),metal);hub.rotation.z=Math.PI/2;hub.position.set(0,.38,z);g.add(hub)}
+let rider=new THREE.Group(),suit=new THREE.Mesh(new THREE.CapsuleGeometry(.25,.7,5,9),dark);suit.position.y=1.55;rider.add(suit);let helmet=new THREE.Mesh(new THREE.SphereGeometry(.27,16,12),mat(0xf0f0f0,.25));helmet.position.set(0,2.08,.05);rider.add(helmet);let visor=new THREE.Mesh(new THREE.SphereGeometry(.2,12,8),mat(0x142b3d,.15));visor.scale.set(1,.6,.3);visor.position.set(0,2.1,.27);rider.add(visor);g.add(rider);g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});return g}
+const racers=[];for(let i=0;i<20;i++){let b=bike([0x1769aa,0xd12c27,0xe2b52c,0xeeeeee,0x1a1a1a,0x4c9c62][i%6]);scene.add(b);racers.push({mesh:b,u:(.018+i*.047)%1,speed:0.00016+Math.random()*.00008,lane:(i%5-2)*1.65,phase:Math.random()*6})}
+const player=bike(0xff4828);scene.add(player);let u=0,velocity=0,steer=0,camMode=0,started=false,lap=1,prevU=0;
+function setHeld(id,fn){let el=document.getElementById(id);el.addEventListener('pointerdown',e=>{e.preventDefault();fn(true)});['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,e=>fn(false)))}
+let L=false,R=false,G=false,B=false;setHeld('left',v=>L=v);setHeld('right',v=>R=v);setHeld('gas',v=>G=v);setHeld('brake',v=>B=v);
+document.getElementById('cam').onclick=()=>camMode=(camMode+1)%3;
+document.getElementById('start').onclick=()=>{started=true;document.getElementById('menu').style.display='none';document.getElementById('msg').textContent='GO! Keep to the racing line.'};
+function placeBike(obj,progress,lane,lean=0){let p=curve.getPointAt((progress%1+1)%1),t=curve.getTangentAt((progress%1+1)%1),n=new THREE.Vector3(-t.z,0,t.x).normalize();obj.position.copy(p).addScaledVector(n,lane);obj.position.y=.02;obj.rotation.set(0,Math.atan2(t.x,t.z),lean)}
+let clock=new THREE.Clock();
+function animate(){requestAnimationFrame(animate);let dt=Math.min(clock.getDelta(),.04);
+if(started){let old=u;velocity+=G?.42*dt:0;velocity-=B?1.5*dt:.22*dt;velocity=Math.max(0,Math.min(1,velocity));steer+=( (R?1:0)-(L?1:0)-steer)*Math.min(1,dt*5);u=(u+velocity*dt*.026)%1;let lane=THREE.MathUtils.clamp(steer*3.4,-5.3,5.3);placeBike(player,u,lane,-steer*.23);
+if(u<old){lap++;if(lap>3){started=false;document.getElementById('msg').textContent='FINISH! Race complete.'}document.getElementById('lapn').textContent=Math.min(lap,3)}
+racers.forEach((r,i)=>{r.u=(r.u+r.speed*dt*2.4)%1;let p=curve.getPointAt(r.u),t=curve.getTangentAt(r.u),n=new THREE.Vector3(-t.z,0,t.x).normalize();r.mesh.position.copy(p).addScaledVector(n,r.lane+Math.sin(clock.elapsedTime*.8+r.phase)*.16);r.mesh.position.y=.02;r.mesh.rotation.y=Math.atan2(t.x,t.z);r.mesh.rotation.z=Math.sin(clock.elapsedTime+r.phase)*.035});
+document.getElementById('speed').innerHTML=Math.round(velocity*330)+' <small>km/h</small>';document.getElementById('gear').textContent='GEAR '+(velocity<.03?'N':Math.min(6,Math.floor(velocity*7)+1));}
+let p=player.position.clone(),forward=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
+if(camMode===0){let desired=p.clone().add(forward.clone().multiplyScalar(-8)).add(new THREE.Vector3(0,4,0));camera.position.lerp(desired,.12);camera.lookAt(p.clone().add(new THREE.Vector3(0,1,0)))}
+else if(camMode===1){let desired=p.clone().add(new THREE.Vector3(0,2.2,0)).add(forward.clone().multiplyScalar(1.1));camera.position.lerp(desired,.3);camera.lookAt(p.clone().add(forward.clone().multiplyScalar(16)).add(new THREE.Vector3(0,1,0)))}
+else{let desired=p.clone().add(new THREE.Vector3(0,18,0));camera.position.lerp(desired,.08);camera.lookAt(p)}
+renderer.render(scene,camera)}
+animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+})();
+</script></body></html>
